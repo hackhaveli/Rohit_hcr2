@@ -20,7 +20,7 @@ const Footer: React.FC = () => {
           </div>
 
           <div className="text-[#c9c1c0] text-sm">
-            © 2025 All rights reserved
+            © 2026 All rights reserved
           </div>
         </div>
 

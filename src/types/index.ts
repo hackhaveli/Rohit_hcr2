@@ -18,10 +18,12 @@ export interface Service {
 export interface Project {
   id: string;
   title: string;
+  category: 'web' | 'app';
   techStack: string[];
   description: string;
   link: string;
-  github?: string; // Optional GitHub repository URL
+  github?: string;
+  preview?: string;
 }
 
 export interface ContactInfo {
