@@ -37,7 +37,8 @@ export async function fetchPortfolioData(): Promise<PortfolioData> {
   const [configRes, servicesRes, projectsRes] = await Promise.all([
     supabase.from('portfolio_config').select('*').single(),
     supabase.from('services').select('*').order('sort_order'),
-    supabase.from('projects').select('*').order('sort_order'),
+    // Fetch all projects ordered by sort_order; we sort web→app client-side
+    supabase.from('projects').select('*').order('sort_order', { ascending: true }),
   ]);
 
   if (configRes.error) throw configRes.error;
@@ -45,10 +46,16 @@ export async function fetchPortfolioData(): Promise<PortfolioData> {
   if (projectsRes.error) throw projectsRes.error;
 
   const cfg = configRes.data;
+  const allProjects = (projectsRes.data ?? []).map(dbRowToProject);
+
+  // Web projects first (sorted by sort_order), then app projects (sorted by sort_order)
+  const webProjects = allProjects.filter((p) => p.category === 'web');
+  const appProjects = allProjects.filter((p) => p.category === 'app');
+
   return {
     about: { text: cfg.about_text, skills: cfg.skills ?? [] },
     services: (servicesRes.data ?? []).map(dbRowToService),
-    projects: (projectsRes.data ?? []).map(dbRowToProject),
+    projects: [...webProjects, ...appProjects],
     contact: {
       whatsapp: cfg.contact_whatsapp,
       email: cfg.contact_email,

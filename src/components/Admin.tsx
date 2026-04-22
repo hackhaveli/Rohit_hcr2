@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Eye, EyeOff, Save, Plus, Trash2, ArrowLeft,
+  Eye, EyeOff, Save, Plus, Trash2, ArrowLeft, ArrowUp, ArrowDown,
   Globe, Smartphone, Shield, LayoutDashboard, FolderOpen,
   Wrench, Phone, RefreshCw, CheckCircle, XCircle, Loader2,
-  GripVertical, ExternalLink, Github,
+  ExternalLink, Github,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PortfolioData, Service, Project } from '../types';
@@ -288,18 +288,45 @@ const Admin: React.FC = () => {
           {tab === 'projects' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-500">{data.projects.length} projects total</p>
+                <div>
+                  <p className="text-sm text-gray-500">{data.projects.length} projects total</p>
+                  <p className="text-[11px] text-gray-600 mt-0.5">Web projects show first, then apps. Change "Order #" to reorder within each group.</p>
+                </div>
                 <button onClick={handleAddProject}
                   className="flex items-center gap-2 px-4 py-2 bg-[#22c825] text-[#040404] rounded-lg font-semibold text-sm hover:bg-[#1ea01f] transition-colors">
                   <Plus className="h-4 w-4" /> Add Project
                 </button>
               </div>
 
-              {data.projects.map((project) => (
+              {[...data.projects].sort((a, b) => {
+                // web first, then app; within group sort by sortOrder
+                if (a.category !== b.category) return a.category === 'web' ? -1 : 1;
+                return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+              }).map((project) => (
                 <div key={project.id} className="bg-[#0a0a0a] border border-white/5 rounded-xl p-5 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <GripVertical className="h-4 w-4 text-gray-600" />
+                      <div className="flex flex-col gap-0.5">
+                        <button
+                          title="Move up (lower order number)"
+                          onClick={() => {
+                            const newOrder = Math.max(1, (project.sortOrder ?? 1) - 1);
+                            handleProjectChange(project.id, 'sortOrder', newOrder);
+                          }}
+                          className="p-0.5 text-gray-600 hover:text-[#22c825] transition-colors">
+                          <ArrowUp className="h-3 w-3" />
+                        </button>
+                        <button
+                          title="Move down (higher order number)"
+                          onClick={() => {
+                            const newOrder = (project.sortOrder ?? 1) + 1;
+                            handleProjectChange(project.id, 'sortOrder', newOrder);
+                          }}
+                          className="p-0.5 text-gray-600 hover:text-[#22c825] transition-colors">
+                          <ArrowDown className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <span className="text-[11px] font-bold text-gray-600 w-5 text-center">#{project.sortOrder ?? 0}</span>
                       <span className="font-semibold text-white text-sm">{project.title || 'Untitled'}</span>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${project.category === 'web' ? 'bg-[#22c825]/10 text-[#22c825] border-[#22c825]/20' : 'bg-[#61DAFB]/10 text-[#61DAFB] border-[#61DAFB]/20'}`}>
                         {project.category}
@@ -326,14 +353,22 @@ const Admin: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Input label="Title" value={project.title}
                       onChange={(e) => handleProjectChange(project.id, 'title', e.target.value)} />
-                    <div>
-                      <label className="block text-xs font-medium text-gray-400 mb-1">Category</label>
-                      <select value={project.category}
-                        onChange={(e) => handleProjectChange(project.id, 'category', e.target.value as 'web' | 'app')}
-                        className="w-full bg-[#0a0a0a] border border-white/8 rounded-lg px-3 py-2 text-sm text-[#c9c1c0] focus:border-[#22c825]/50 focus:outline-none">
-                        <option value="web">Web</option>
-                        <option value="app">App</option>
-                      </select>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Category</label>
+                        <select value={project.category}
+                          onChange={(e) => handleProjectChange(project.id, 'category', e.target.value as 'web' | 'app')}
+                          className="w-full bg-[#0a0a0a] border border-white/8 rounded-lg px-3 py-2 text-sm text-[#c9c1c0] focus:border-[#22c825]/50 focus:outline-none">
+                          <option value="web">Web</option>
+                          <option value="app">App</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">Order # <span className="text-gray-600">(within category)</span></label>
+                        <input type="number" min={1} value={project.sortOrder ?? 1}
+                          onChange={(e) => handleProjectChange(project.id, 'sortOrder', parseInt(e.target.value) || 1)}
+                          className="w-full bg-[#0a0a0a] border border-white/8 rounded-lg px-3 py-2 text-sm text-[#c9c1c0] focus:border-[#22c825]/50 focus:outline-none" />
+                      </div>
                     </div>
                     <Input label="Live Link" value={project.link}
                       onChange={(e) => handleProjectChange(project.id, 'link', e.target.value)} />
