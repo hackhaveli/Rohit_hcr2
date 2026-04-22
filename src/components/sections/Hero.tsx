@@ -210,16 +210,7 @@ const Hero: React.FC = () => {
               <span>View Resume</span>
             </motion.a>
 
-            <motion.a
-              href="/resume.pdf"
-              download
-              className="px-8 py-3 bg-white/5 text-gray-300 rounded-full font-medium border border-white/10 flex items-center gap-2 group hover:bg-white/10 transition-colors"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Download className="w-4 h-4" />
-              <span>Download CV</span>
-            </motion.a>
+
           </motion.div>
         </motion.div>
 
