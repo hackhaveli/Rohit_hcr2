@@ -13,17 +13,20 @@ export interface Service {
   title: string;
   description: string;
   icon: string;
+  sortOrder?: number;
 }
 
 export interface Project {
   id: string;
-  title: string;
   category: 'web' | 'app';
+  title: string;
   techStack: string[];
   description: string;
   link: string;
   github?: string;
   preview?: string;
+  featured?: boolean;
+  sortOrder?: number;
 }
 
 export interface ContactInfo {

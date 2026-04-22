@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, Download, Play, Sparkles, Code, Shield, Smartphone, Zap } from 'lucide-react';
+import { ChevronDown, Download, Play, Sparkles, Code, Shield, Smartphone, Zap, FileText } from 'lucide-react';
 import myImages from '../../assets/images/medium-1750698796.jpg';
 import { motion } from 'framer-motion';
 
@@ -200,8 +200,20 @@ const Hero: React.FC = () => {
             
             <motion.a
               href="/resume.pdf"
-              download
+              target="_blank"
+              rel="noopener noreferrer"
               className="px-8 py-3 bg-white/10 text-white rounded-full font-medium border border-white/20 flex items-center gap-2 group hover:bg-white/20 transition-colors"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <FileText className="w-4 h-4" />
+              <span>View Resume</span>
+            </motion.a>
+
+            <motion.a
+              href="/resume.pdf"
+              download
+              className="px-8 py-3 bg-white/5 text-gray-300 rounded-full font-medium border border-white/10 flex items-center gap-2 group hover:bg-white/10 transition-colors"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >

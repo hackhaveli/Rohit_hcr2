@@ -1,430 +1,435 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, Save, Download, Plus, Trash2, ArrowLeft } from 'lucide-react';
+import {
+  Eye, EyeOff, Save, Plus, Trash2, ArrowLeft,
+  Globe, Smartphone, Shield, LayoutDashboard, FolderOpen,
+  Wrench, Phone, RefreshCw, CheckCircle, XCircle, Loader2,
+  GripVertical, ExternalLink, Github,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { PortfolioData, Service, Project } from '../types';
-import { getPortfolioData, savePortfolioData } from '../data/portfolio-data';
+import {
+  fetchPortfolioData, saveConfig, upsertProject, deleteProject,
+  upsertService, deleteService,
+} from '../lib/supabase';
 
-const ADMIN_PASSWORD = 'Rohit@2927'; // In production, use proper authentication
+const ADMIN_PASSWORD = 'Rohit@2927';
 
-const Admin: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [data, setData] = useState<PortfolioData | null>(null);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+type Tab = 'overview' | 'about' | 'projects' | 'services' | 'contact';
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      setData(getPortfolioData());
-    }
-  }, [isAuthenticated]);
+/* ── small helpers ── */
+const iconMap: Record<string, React.ReactNode> = {
+  Globe: <Globe className="h-4 w-4" />,
+  Smartphone: <Smartphone className="h-4 w-4" />,
+  Shield: <Shield className="h-4 w-4" />,
+};
 
-  const handleLogin = (e: React.FormEvent) => {
+const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { label: string }> = ({ label, ...props }) => (
+  <div>
+    <label className="block text-xs font-medium text-gray-400 mb-1">{label}</label>
+    <input {...props}
+      className="w-full bg-[#0a0a0a] border border-white/8 rounded-lg px-3 py-2 text-sm text-[#c9c1c0] placeholder-gray-600 focus:border-[#22c825]/50 focus:outline-none transition-colors" />
+  </div>
+);
+
+const Textarea: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string }> = ({ label, ...props }) => (
+  <div>
+    <label className="block text-xs font-medium text-gray-400 mb-1">{label}</label>
+    <textarea {...props}
+      className="w-full bg-[#0a0a0a] border border-white/8 rounded-lg px-3 py-2 text-sm text-[#c9c1c0] placeholder-gray-600 focus:border-[#22c825]/50 focus:outline-none transition-colors resize-none" />
+  </div>
+);
+
+/* ── Login ── */
+const LoginScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
+  const [pw, setPw] = useState('');
+  const [show, setShow] = useState(false);
+  const [err, setErr] = useState(false);
+
+  const handle = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === ADMIN_PASSWORD) {
-      setIsAuthenticated(true);
-      setPassword('');
-    } else {
-      alert('Incorrect password');
-    }
+    if (pw === ADMIN_PASSWORD) { onLogin(); } else { setErr(true); setTimeout(() => setErr(false), 2000); }
   };
-
-  const handleSave = () => {
-    if (!data) return;
-    
-    setSaveStatus('saving');
-    try {
-      savePortfolioData(data);
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus('idle'), 2000);
-    } catch (error) {
-      setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 2000);
-    }
-  };
-
-  const handleExport = () => {
-    if (!data) return;
-    
-    const dataStr = JSON.stringify(data, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'portfolio-data.json';
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const addService = () => {
-    if (!data) return;
-    const newService: Service = {
-      id: `service-${Date.now()}`,
-      title: 'New Service',
-      description: 'Service description',
-      icon: 'Globe'
-    };
-    setData({ ...data, services: [...data.services, newService] });
-  };
-
-  const removeService = (id: string) => {
-    if (!data) return;
-    setData({ ...data, services: data.services.filter(s => s.id !== id) });
-  };
-
-  const addProject = () => {
-    if (!data) return;
-    const newProject: Project = {
-      id: `project-${Date.now()}`,
-      title: 'New Project',
-      techStack: ['React'],
-      description: 'Project description',
-      link: 'https://github.com'
-    };
-    setData({ ...data, projects: [...data.projects, newProject] });
-  };
-
-  const removeProject = (id: string) => {
-    if (!data) return;
-    setData({ ...data, projects: data.projects.filter(p => p.id !== id) });
-  };
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-[#040404] flex items-center justify-center">
-        <div className="bg-gradient-to-br from-[#0a0a0a] to-[#1a1a1a] p-8 rounded-2xl border border-[#22c825]/20 max-w-md w-full mx-4">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-[#22c825] mb-2">Admin Panel</h1>
-            <p className="text-[#c9c1c0]">Enter password to continue</p>
-          </div>
-          
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter admin password"
-                className="w-full bg-[#040404] border border-[#22c825]/30 rounded-lg px-4 py-3 text-[#c9c1c0] placeholder-gray-500 focus:border-[#22c825] focus:outline-none transition-colors duration-200"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-[#22c825] transition-colors duration-200"
-              >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
-            
-            <button
-              type="submit"
-              className="w-full bg-[#22c825] hover:bg-[#1ea01f] text-[#040404] font-semibold py-3 rounded-lg transition-colors duration-200"
-            >
-              Login
-            </button>
-          </form>
-          
-          <div className="mt-6 text-center">
-            <Link to="/" className="text-[#22c825] hover:text-[#1ea01f] transition-colors duration-200">
-              ← Back to Portfolio
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="min-h-screen bg-[#040404] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#22c825]"></div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-[#040404] text-[#c9c1c0] py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-4xl font-bold text-[#22c825] mb-2">Admin Panel</h1>
-            <p className="text-gray-400">Manage your portfolio content</p>
+    <div className="min-h-screen bg-[#040404] flex items-center justify-center">
+      <div className="bg-[#0a0a0a] p-8 rounded-2xl border border-[#22c825]/20 max-w-md w-full mx-4 shadow-2xl">
+        <div className="text-center mb-8">
+          <div className="w-14 h-14 rounded-full bg-[#22c825]/10 border border-[#22c825]/20 flex items-center justify-center mx-auto mb-4">
+            <LayoutDashboard className="h-7 w-7 text-[#22c825]" />
           </div>
-          <div className="flex space-x-4">
-            <Link 
-              to="/" 
-              className="flex items-center space-x-2 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg transition-colors duration-200"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Back</span>
-            </Link>
-            <button
-              onClick={handleExport}
-              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg transition-colors duration-200"
-            >
-              <Download className="h-4 w-4" />
-              <span>Export</span>
+          <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
+          <p className="text-gray-500 text-sm mt-1">Portfolio control center</p>
+        </div>
+        <form onSubmit={handle} className="space-y-5">
+          <div className="relative">
+            <input type={show ? 'text' : 'password'} value={pw} onChange={(e) => setPw(e.target.value)}
+              placeholder="Admin password"
+              className={`w-full bg-[#060606] border rounded-lg px-4 py-3 text-[#c9c1c0] placeholder-gray-600 focus:outline-none transition-colors pr-10 ${err ? 'border-red-500' : 'border-white/10 focus:border-[#22c825]/50'}`} />
+            <button type="button" onClick={() => setShow(!show)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+              {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
-            <button
-              onClick={handleSave}
-              disabled={saveStatus === 'saving'}
-              className="flex items-center space-x-2 bg-[#22c825] hover:bg-[#1ea01f] text-[#040404] px-4 py-2 rounded-lg font-semibold transition-colors duration-200 disabled:opacity-50"
-            >
-              <Save className="h-4 w-4" />
-              <span>{saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : 'Save'}</span>
+          </div>
+          {err && <p className="text-red-400 text-xs">Incorrect password</p>}
+          <button type="submit"
+            className="w-full bg-[#22c825] hover:bg-[#1ea01f] text-[#040404] font-bold py-3 rounded-lg transition-colors">
+            Login
+          </button>
+        </form>
+        <div className="mt-5 text-center">
+          <Link to="/" className="text-[#22c825]/60 hover:text-[#22c825] text-sm transition-colors">← Back to Portfolio</Link>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── SaveBadge ── */
+const SaveBadge: React.FC<{ state: SaveState }> = ({ state }) => {
+  if (state === 'idle') return null;
+  return (
+    <div className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium ${
+      state === 'saving' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
+      state === 'saved'  ? 'bg-[#22c825]/10 text-[#22c825] border border-[#22c825]/20' :
+                           'bg-red-500/10 text-red-400 border border-red-500/20'
+    }`}>
+      {state === 'saving' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+      {state === 'saved'  && <CheckCircle className="h-3.5 w-3.5" />}
+      {state === 'error'  && <XCircle className="h-3.5 w-3.5" />}
+      {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved to Supabase!' : 'Save failed'}
+    </div>
+  );
+};
+
+/* ── Main Admin ── */
+const Admin: React.FC = () => {
+  const [auth, setAuth]       = useState(false);
+  const [data, setData]       = useState<PortfolioData | null>(null);
+  const [tab, setTab]         = useState<Tab>('overview');
+  const [saveState, setSave]  = useState<SaveState>('idle');
+  const [loading, setLoading] = useState(false);
+
+  const reload = () => {
+    setLoading(true);
+    fetchPortfolioData().then(setData).finally(() => setLoading(false));
+  };
+
+  useEffect(() => { if (auth) reload(); }, [auth]);
+
+  const saveFeedback = async (fn: () => Promise<void>) => {
+    setSave('saving');
+    try { await fn(); setSave('saved'); } catch { setSave('error'); }
+    setTimeout(() => setSave('idle'), 3000);
+  };
+
+  /* ── config save ── */
+  const handleSaveConfig = () => {
+    if (!data) return;
+    saveFeedback(() => saveConfig(data));
+  };
+
+  /* ── project handlers ── */
+  const handleAddProject = () => {
+    if (!data) return;
+    const np: Project = {
+      id: `proj-${Date.now()}`,
+      category: 'web',
+      title: 'New Project',
+      description: '',
+      techStack: [],
+      link: '',
+      featured: false,
+      sortOrder: data.projects.length,
+    };
+    setData({ ...data, projects: [...data.projects, np] });
+  };
+
+  const handleProjectChange = (id: string, field: keyof Project, val: any) =>
+    setData((d) => d ? { ...d, projects: d.projects.map((p) => p.id === id ? { ...p, [field]: val } : p) } : d);
+
+  const handleSaveProject = (project: Project) =>
+    saveFeedback(() => upsertProject(project));
+
+  const handleDeleteProject = (id: string) => {
+    if (!confirm('Delete this project?')) return;
+    saveFeedback(async () => {
+      await deleteProject(id);
+      setData((d) => d ? { ...d, projects: d.projects.filter((p) => p.id !== id) } : d);
+    });
+  };
+
+  /* ── service handlers ── */
+  const handleAddService = () => {
+    if (!data) return;
+    const ns: Service = { id: `svc-${Date.now()}`, title: 'New Service', description: '', icon: 'Globe', sortOrder: data.services.length };
+    setData({ ...data, services: [...data.services, ns] });
+  };
+
+  const handleServiceChange = (id: string, field: keyof Service, val: any) =>
+    setData((d) => d ? { ...d, services: d.services.map((s) => s.id === id ? { ...s, [field]: val } : s) } : d);
+
+  const handleSaveService = (service: Service) =>
+    saveFeedback(() => upsertService(service));
+
+  const handleDeleteService = (id: string) => {
+    if (!confirm('Delete this service?')) return;
+    saveFeedback(async () => {
+      await deleteService(id);
+      setData((d) => d ? { ...d, services: d.services.filter((s) => s.id !== id) } : d);
+    });
+  };
+
+  if (!auth) return <LoginScreen onLogin={() => setAuth(true)} />;
+  if (!data || loading) return (
+    <div className="min-h-screen bg-[#040404] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-10 h-10 border-2 border-[#22c825] border-t-transparent rounded-full animate-spin" />
+        <p className="text-[#22c825]/60 text-sm">Loading from Supabase…</p>
+      </div>
+    </div>
+  );
+
+  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: 'overview',  label: 'Overview',  icon: <LayoutDashboard className="h-4 w-4" /> },
+    { id: 'about',     label: 'About',     icon: <Wrench className="h-4 w-4" /> },
+    { id: 'projects',  label: 'Projects',  icon: <FolderOpen className="h-4 w-4" /> },
+    { id: 'services',  label: 'Services',  icon: <Globe className="h-4 w-4" /> },
+    { id: 'contact',   label: 'Contact',   icon: <Phone className="h-4 w-4" /> },
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#040404] text-[#c9c1c0] flex">
+      {/* Sidebar */}
+      <aside className="w-56 shrink-0 bg-[#060606] border-r border-white/5 flex flex-col min-h-screen sticky top-0">
+        <div className="px-5 py-6 border-b border-white/5">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-[#22c825]/10 flex items-center justify-center">
+              <LayoutDashboard className="h-4 w-4 text-[#22c825]" />
+            </div>
+            <span className="font-bold text-white text-sm">Admin Panel</span>
+          </div>
+        </div>
+        <nav className="flex-1 px-3 py-4 space-y-1">
+          {tabs.map((t) => (
+            <button key={t.id} id={`tab-${t.id}`} onClick={() => setTab(t.id)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${tab === t.id ? 'bg-[#22c825]/10 text-[#22c825] border border-[#22c825]/20' : 'text-gray-500 hover:text-gray-300 hover:bg-white/4'}`}>
+              {t.icon} {t.label}
             </button>
+          ))}
+        </nav>
+        <div className="px-3 py-4 border-t border-white/5 space-y-2">
+          <button onClick={reload}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-500 hover:text-[#22c825] hover:bg-[#22c825]/5 transition-all">
+            <RefreshCw className="h-3.5 w-3.5" /> Sync from DB
+          </button>
+          <Link to="/"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-gray-500 hover:text-white hover:bg-white/5 transition-all">
+            <ArrowLeft className="h-3.5 w-3.5" /> View Portfolio
+          </Link>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <main className="flex-1 overflow-auto">
+        {/* Topbar */}
+        <div className="sticky top-0 z-30 bg-[#040404]/90 backdrop-blur-md border-b border-white/5 px-8 py-4 flex items-center justify-between">
+          <h1 className="text-lg font-bold text-white capitalize">{tab}</h1>
+          <div className="flex items-center gap-3">
+            <SaveBadge state={saveState} />
           </div>
         </div>
 
-        <div className="space-y-8">
-          {/* About Section */}
-          <div className="bg-gradient-to-br from-[#0a0a0a] to-[#1a1a1a] p-6 rounded-2xl border border-[#22c825]/20">
-            <h2 className="text-2xl font-bold text-[#22c825] mb-6">About Section</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#c9c1c0] mb-2">About Text</label>
-                <textarea
-                  value={data.about.text}
-                  onChange={(e) => setData({ ...data, about: { ...data.about, text: e.target.value } })}
-                  rows={4}
-                  className="w-full bg-[#040404] border border-[#22c825]/30 rounded-lg px-4 py-3 text-[#c9c1c0] focus:border-[#22c825] focus:outline-none transition-colors duration-200"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-[#c9c1c0] mb-2">Skills (comma-separated)</label>
-                <input
-                  value={data.about.skills.join(', ')}
-                  onChange={(e) => setData({ ...data, about: { ...data.about, skills: e.target.value.split(', ').filter(s => s.trim()) } })}
-                  className="w-full bg-[#040404] border border-[#22c825]/30 rounded-lg px-4 py-3 text-[#c9c1c0] focus:border-[#22c825] focus:outline-none transition-colors duration-200"
-                />
+        <div className="px-8 py-8 space-y-6">
+
+          {/* ── OVERVIEW ── */}
+          {tab === 'overview' && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { label: 'Total Projects', value: data.projects.length, color: 'text-[#22c825]' },
+                { label: 'Web Projects',   value: data.projects.filter((p) => p.category === 'web').length, color: 'text-blue-400' },
+                { label: 'Mobile Apps',    value: data.projects.filter((p) => p.category === 'app').length, color: 'text-[#61DAFB]' },
+                { label: 'Services',       value: data.services.length, color: 'text-purple-400' },
+              ].map((s) => (
+                <div key={s.label} className="bg-[#0a0a0a] border border-white/5 rounded-xl p-5">
+                  <div className={`text-3xl font-bold ${s.color}`}>{s.value}</div>
+                  <div className="text-xs text-gray-500 mt-1">{s.label}</div>
+                </div>
+              ))}
+              <div className="col-span-2 lg:col-span-4 bg-[#0a0a0a] border border-white/5 rounded-xl p-5">
+                <p className="text-sm text-gray-400 leading-relaxed">
+                  All changes are synced in real-time to <span className="text-[#22c825]">Supabase</span>. 
+                  Use the sidebar to navigate sections. Press "Save" on each item to push changes.
+                </p>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Services Section */}
-          <div className="bg-gradient-to-br from-[#0a0a0a] to-[#1a1a1a] p-6 rounded-2xl border border-[#22c825]/20">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-[#22c825]">Services</h2>
-              <button
-                onClick={addService}
-                className="flex items-center space-x-2 bg-[#22c825] hover:bg-[#1ea01f] text-[#040404] px-4 py-2 rounded-lg font-semibold transition-colors duration-200"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Add Service</span>
+          {/* ── ABOUT ── */}
+          {tab === 'about' && (
+            <div className="bg-[#0a0a0a] border border-white/5 rounded-xl p-6 space-y-5">
+              <Textarea label="About Text" value={data.about.text} rows={5}
+                onChange={(e) => setData({ ...data, about: { ...data.about, text: e.target.value } })} />
+              <Input label="Skills (comma-separated)" value={data.about.skills.join(', ')}
+                onChange={(e) => setData({ ...data, about: { ...data.about, skills: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) } })} />
+              <div className="flex flex-wrap gap-1.5">
+                {data.about.skills.map((s) => (
+                  <span key={s} className="px-2 py-0.5 rounded-full text-xs bg-[#22c825]/10 text-[#22c825] border border-[#22c825]/20">{s}</span>
+                ))}
+              </div>
+              <button onClick={handleSaveConfig}
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#22c825] text-[#040404] rounded-lg font-semibold text-sm hover:bg-[#1ea01f] transition-colors">
+                <Save className="h-4 w-4" /> Save About
               </button>
             </div>
-            
+          )}
+
+          {/* ── PROJECTS ── */}
+          {tab === 'projects' && (
             <div className="space-y-4">
-              {data.services.map((service, index) => (
-                <div key={service.id} className="bg-[#040404] p-4 rounded-lg border border-[#22c825]/20">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-lg font-semibold text-[#c9c1c0]">Service {index + 1}</h3>
-                    <button
-                      onClick={() => removeService(service.id)}
-                      className="text-red-400 hover:text-red-300 transition-colors duration-200"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-[#c9c1c0] mb-1">Title</label>
-                      <input
-                        value={service.title}
-                        onChange={(e) => {
-                          const updatedServices = data.services.map(s => 
-                            s.id === service.id ? { ...s, title: e.target.value } : s
-                          );
-                          setData({ ...data, services: updatedServices });
-                        }}
-                        className="w-full bg-[#1a1a1a] border border-[#22c825]/30 rounded px-3 py-2 text-[#c9c1c0] focus:border-[#22c825] focus:outline-none transition-colors duration-200"
-                      />
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-500">{data.projects.length} projects total</p>
+                <button onClick={handleAddProject}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#22c825] text-[#040404] rounded-lg font-semibold text-sm hover:bg-[#1ea01f] transition-colors">
+                  <Plus className="h-4 w-4" /> Add Project
+                </button>
+              </div>
+
+              {data.projects.map((project) => (
+                <div key={project.id} className="bg-[#0a0a0a] border border-white/5 rounded-xl p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <GripVertical className="h-4 w-4 text-gray-600" />
+                      <span className="font-semibold text-white text-sm">{project.title || 'Untitled'}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${project.category === 'web' ? 'bg-[#22c825]/10 text-[#22c825] border-[#22c825]/20' : 'bg-[#61DAFB]/10 text-[#61DAFB] border-[#61DAFB]/20'}`}>
+                        {project.category}
+                      </span>
                     </div>
-                    
+                    <div className="flex items-center gap-2">
+                      {project.link && (
+                        <a href={project.link} target="_blank" rel="noopener noreferrer"
+                          className="p-1.5 rounded-lg text-gray-500 hover:text-[#22c825] transition-colors">
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      )}
+                      <button onClick={() => handleSaveProject(project)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#22c825]/10 text-[#22c825] border border-[#22c825]/20 rounded-lg text-xs font-medium hover:bg-[#22c825]/20 transition-colors">
+                        <Save className="h-3.5 w-3.5" /> Save
+                      </button>
+                      <button onClick={() => handleDeleteProject(project.id)}
+                        className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 transition-colors">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input label="Title" value={project.title}
+                      onChange={(e) => handleProjectChange(project.id, 'title', e.target.value)} />
                     <div>
-                      <label className="block text-sm font-medium text-[#c9c1c0] mb-1">Icon</label>
-                      <select
-                        value={service.icon}
-                        onChange={(e) => {
-                          const updatedServices = data.services.map(s => 
-                            s.id === service.id ? { ...s, icon: e.target.value } : s
-                          );
-                          setData({ ...data, services: updatedServices });
-                        }}
-                        className="w-full bg-[#1a1a1a] border border-[#22c825]/30 rounded px-3 py-2 text-[#c9c1c0] focus:border-[#22c825] focus:outline-none transition-colors duration-200"
-                      >
+                      <label className="block text-xs font-medium text-gray-400 mb-1">Category</label>
+                      <select value={project.category}
+                        onChange={(e) => handleProjectChange(project.id, 'category', e.target.value as 'web' | 'app')}
+                        className="w-full bg-[#0a0a0a] border border-white/8 rounded-lg px-3 py-2 text-sm text-[#c9c1c0] focus:border-[#22c825]/50 focus:outline-none">
+                        <option value="web">Web</option>
+                        <option value="app">App</option>
+                      </select>
+                    </div>
+                    <Input label="Live Link" value={project.link}
+                      onChange={(e) => handleProjectChange(project.id, 'link', e.target.value)} />
+                    <Input label="GitHub (optional)" value={project.github ?? ''}
+                      onChange={(e) => handleProjectChange(project.id, 'github', e.target.value || undefined)} />
+                    <Input label="Preview Screenshot URL (optional)" value={project.preview ?? ''}
+                      onChange={(e) => handleProjectChange(project.id, 'preview', e.target.value || undefined)} />
+                    <Input label="Tech Stack (comma-separated)" value={project.techStack.join(', ')}
+                      onChange={(e) => handleProjectChange(project.id, 'techStack', e.target.value.split(',').map((s) => s.trim()).filter(Boolean))} />
+                  </div>
+                  <Textarea label="Description" value={project.description} rows={2}
+                    onChange={(e) => handleProjectChange(project.id, 'description', e.target.value)} />
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id={`feat-${project.id}`} checked={project.featured ?? false}
+                      onChange={(e) => handleProjectChange(project.id, 'featured', e.target.checked)}
+                      className="accent-[#22c825]" />
+                    <label htmlFor={`feat-${project.id}`} className="text-xs text-gray-400">Featured project</label>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── SERVICES ── */}
+          {tab === 'services' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-500">{data.services.length} services</p>
+                <button onClick={handleAddService}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#22c825] text-[#040404] rounded-lg font-semibold text-sm hover:bg-[#1ea01f] transition-colors">
+                  <Plus className="h-4 w-4" /> Add Service
+                </button>
+              </div>
+              {data.services.map((service) => (
+                <div key={service.id} className="bg-[#0a0a0a] border border-white/5 rounded-xl p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[#22c825]">{iconMap[service.icon] ?? <Globe className="h-4 w-4" />}</span>
+                      <span className="font-semibold text-white text-sm">{service.title}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleSaveService(service)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#22c825]/10 text-[#22c825] border border-[#22c825]/20 rounded-lg text-xs font-medium hover:bg-[#22c825]/20 transition-colors">
+                        <Save className="h-3.5 w-3.5" /> Save
+                      </button>
+                      <button onClick={() => handleDeleteService(service.id)}
+                        className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 transition-colors">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input label="Title" value={service.title}
+                      onChange={(e) => handleServiceChange(service.id, 'title', e.target.value)} />
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1">Icon</label>
+                      <select value={service.icon}
+                        onChange={(e) => handleServiceChange(service.id, 'icon', e.target.value)}
+                        className="w-full bg-[#0a0a0a] border border-white/8 rounded-lg px-3 py-2 text-sm text-[#c9c1c0] focus:border-[#22c825]/50 focus:outline-none">
                         <option value="Globe">Globe</option>
                         <option value="Smartphone">Smartphone</option>
                         <option value="Shield">Shield</option>
                       </select>
                     </div>
                   </div>
-                  
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-[#c9c1c0] mb-1">Description</label>
-                    <textarea
-                      value={service.description}
-                      onChange={(e) => {
-                        const updatedServices = data.services.map(s => 
-                          s.id === service.id ? { ...s, description: e.target.value } : s
-                        );
-                        setData({ ...data, services: updatedServices });
-                      }}
-                      rows={2}
-                      className="w-full bg-[#1a1a1a] border border-[#22c825]/30 rounded px-3 py-2 text-[#c9c1c0] focus:border-[#22c825] focus:outline-none transition-colors duration-200"
-                    />
-                  </div>
+                  <Textarea label="Description" value={service.description} rows={2}
+                    onChange={(e) => handleServiceChange(service.id, 'description', e.target.value)} />
                 </div>
               ))}
             </div>
-          </div>
+          )}
 
-          {/* Projects Section */}
-          <div className="bg-gradient-to-br from-[#0a0a0a] to-[#1a1a1a] p-6 rounded-2xl border border-[#22c825]/20">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-[#22c825]">Projects</h2>
-              <button
-                onClick={addProject}
-                className="flex items-center space-x-2 bg-[#22c825] hover:bg-[#1ea01f] text-[#040404] px-4 py-2 rounded-lg font-semibold transition-colors duration-200"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Add Project</span>
+          {/* ── CONTACT ── */}
+          {tab === 'contact' && (
+            <div className="bg-[#0a0a0a] border border-white/5 rounded-xl p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input label="WhatsApp URL" value={data.contact.whatsapp}
+                  onChange={(e) => setData({ ...data, contact: { ...data.contact, whatsapp: e.target.value } })} />
+                <Input label="Email" value={data.contact.email}
+                  onChange={(e) => setData({ ...data, contact: { ...data.contact, email: e.target.value } })} />
+                <Input label="GitHub URL" value={data.contact.github}
+                  onChange={(e) => setData({ ...data, contact: { ...data.contact, github: e.target.value } })} />
+                <Input label="YouTube URL" value={data.contact.youtube}
+                  onChange={(e) => setData({ ...data, contact: { ...data.contact, youtube: e.target.value } })} />
+                <Input label="Instagram URL" value={data.contact.instagram} className="sm:col-span-2"
+                  onChange={(e) => setData({ ...data, contact: { ...data.contact, instagram: e.target.value } })} />
+              </div>
+              <button onClick={handleSaveConfig}
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#22c825] text-[#040404] rounded-lg font-semibold text-sm hover:bg-[#1ea01f] transition-colors">
+                <Save className="h-4 w-4" /> Save Contact Info
               </button>
             </div>
-            
-            <div className="space-y-4">
-              {data.projects.map((project, index) => (
-                <div key={project.id} className="bg-[#040404] p-4 rounded-lg border border-[#22c825]/20">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-lg font-semibold text-[#c9c1c0]">Project {index + 1}</h3>
-                    <button
-                      onClick={() => removeProject(project.id)}
-                      className="text-red-400 hover:text-red-300 transition-colors duration-200"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-[#c9c1c0] mb-1">Title</label>
-                      <input
-                        value={project.title}
-                        onChange={(e) => {
-                          const updatedProjects = data.projects.map(p => 
-                            p.id === project.id ? { ...p, title: e.target.value } : p
-                          );
-                          setData({ ...data, projects: updatedProjects });
-                        }}
-                        className="w-full bg-[#1a1a1a] border border-[#22c825]/30 rounded px-3 py-2 text-[#c9c1c0] focus:border-[#22c825] focus:outline-none transition-colors duration-200"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-[#c9c1c0] mb-1">Link</label>
-                      <input
-                        value={project.link}
-                        onChange={(e) => {
-                          const updatedProjects = data.projects.map(p => 
-                            p.id === project.id ? { ...p, link: e.target.value } : p
-                          );
-                          setData({ ...data, projects: updatedProjects });
-                        }}
-                        className="w-full bg-[#1a1a1a] border border-[#22c825]/30 rounded px-3 py-2 text-[#c9c1c0] focus:border-[#22c825] focus:outline-none transition-colors duration-200"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-[#c9c1c0] mb-1">Tech Stack (comma-separated)</label>
-                    <input
-                      value={project.techStack.join(', ')}
-                      onChange={(e) => {
-                        const updatedProjects = data.projects.map(p => 
-                          p.id === project.id ? { ...p, techStack: e.target.value.split(', ').filter(s => s.trim()) } : p
-                        );
-                        setData({ ...data, projects: updatedProjects });
-                      }}
-                      className="w-full bg-[#1a1a1a] border border-[#22c825]/30 rounded px-3 py-2 text-[#c9c1c0] focus:border-[#22c825] focus:outline-none transition-colors duration-200"
-                    />
-                  </div>
-                  
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-[#c9c1c0] mb-1">Description</label>
-                    <textarea
-                      value={project.description}
-                      onChange={(e) => {
-                        const updatedProjects = data.projects.map(p => 
-                          p.id === project.id ? { ...p, description: e.target.value } : p
-                        );
-                        setData({ ...data, projects: updatedProjects });
-                      }}
-                      rows={2}
-                      className="w-full bg-[#1a1a1a] border border-[#22c825]/30 rounded px-3 py-2 text-[#c9c1c0] focus:border-[#22c825] focus:outline-none transition-colors duration-200"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
 
-          {/* Contact Section */}
-          <div className="bg-gradient-to-br from-[#0a0a0a] to-[#1a1a1a] p-6 rounded-2xl border border-[#22c825]/20">
-            <h2 className="text-2xl font-bold text-[#22c825] mb-6">Contact Information</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[#c9c1c0] mb-1">WhatsApp URL</label>
-                <input
-                  value={data.contact.whatsapp}
-                  onChange={(e) => setData({ ...data, contact: { ...data.contact, whatsapp: e.target.value } })}
-                  className="w-full bg-[#040404] border border-[#22c825]/30 rounded px-3 py-2 text-[#c9c1c0] focus:border-[#22c825] focus:outline-none transition-colors duration-200"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-[#c9c1c0] mb-1">Email</label>
-                <input
-                  value={data.contact.email}
-                  onChange={(e) => setData({ ...data, contact: { ...data.contact, email: e.target.value } })}
-                  className="w-full bg-[#040404] border border-[#22c825]/30 rounded px-3 py-2 text-[#c9c1c0] focus:border-[#22c825] focus:outline-none transition-colors duration-200"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-[#c9c1c0] mb-1">GitHub URL</label>
-                <input
-                  value={data.contact.github}
-                  onChange={(e) => setData({ ...data, contact: { ...data.contact, github: e.target.value } })}
-                  className="w-full bg-[#040404] border border-[#22c825]/30 rounded px-3 py-2 text-[#c9c1c0] focus:border-[#22c825] focus:outline-none transition-colors duration-200"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-[#c9c1c0] mb-1">YouTube URL</label>
-                <input
-                  value={data.contact.youtube}
-                  onChange={(e) => setData({ ...data, contact: { ...data.contact, youtube: e.target.value } })}
-                  className="w-full bg-[#040404] border border-[#22c825]/30 rounded px-3 py-2 text-[#c9c1c0] focus:border-[#22c825] focus:outline-none transition-colors duration-200"
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-[#c9c1c0] mb-1">Instagram URL</label>
-                <input
-                  value={data.contact.instagram}
-                  onChange={(e) => setData({ ...data, contact: { ...data.contact, instagram: e.target.value } })}
-                  className="w-full bg-[#040404] border border-[#22c825]/30 rounded px-3 py-2 text-[#c9c1c0] focus:border-[#22c825] focus:outline-none transition-colors duration-200"
-                />
-              </div>
-            </div>
-          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };
